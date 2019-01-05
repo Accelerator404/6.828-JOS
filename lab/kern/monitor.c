@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace","Display a table of function call frames",mon_backtrace},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -58,18 +59,27 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	uint32_t ebp = read_ebp();
-	uint32_t eip = *((uint32_t *)ebp + 1);
+	// Pointers in this function are confusing.
+	uint32_t * ebp = (uint32_t *)read_ebp();
+	uint32_t eip;
+	// Used for Exercise 12 ,in fact addr is the pointer format of eip here.
+	uintptr_t addr;
+  	struct Eipdebuginfo info;
 	cprintf("Stack backtrace:\n");
-	while((int)ebp != 0){
+	while(ebp != 0){
+		eip = *(uint32_t *)(ebp + 1);
+		addr = (uintptr_t)*(ebp + 1);
 		cprintf("  ebp %08x  eip %08x  args",ebp,eip);
 		uint32_t *args = (uint32_t *)ebp + 2;
 		for(int i = 0; i < 5; i++){
 			cprintf(" %08x",args[i]);
 		}
 		cprintf("\n");
-		eip = ((uint32_t *)ebp)[1];
-		ebp = *((uint32_t *)ebp);
+		// Clean info struct to write and print new debuginfo.
+		memset(&info,0,sizeof(info));
+		debuginfo_eip(addr,&info);
+		// Next func in stack.
+		ebp = (uint32_t *)(*(uint32_t *)ebp);
 	}
 	return 0;
 }
